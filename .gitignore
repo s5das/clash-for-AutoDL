@@ -1,0 +1,4 @@
+conf/config.yaml
+clash.log
+.env
+logs/*
