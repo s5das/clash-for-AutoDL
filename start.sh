@@ -6,8 +6,7 @@ set +m  # 关闭监视模式，不再报告后台作业状态
 # 杀死clash相关的所有进程
 pids=$(pgrep -f "clash-linux")
 if [ -n "$pids" ]; then
-    echo "Killing clash processes: $pids"
-    kill -9 $pids &>/dev/null
+    kill $pids &>/dev/null
 fi
 # 杀死遗留clash进程
 lsof -i :7890 -i :7891 -i :7892 -i :6006 | awk 'NR!=1 {print $2}' | xargs -r kill
@@ -76,6 +75,21 @@ if_success() {
 	fi
 }
 
+# 检查并更新配置
+update_config() {
+    local key="$1"
+    local value="$2"
+
+    # 检查配置项是否已存在
+    if grep -q "^${key}:" "$Config_File"; then
+        # 配置项存在，更新它
+        sed -ri "s@^${key}:.*@${key}: ${value}@g" "$Config_File"
+    else
+        # 配置项不存在，添加它
+        echo "${key}: ${value}" >> "$Config_File"
+    fi
+}
+
 #################### 任务执行 ####################
 ## 获取CPU架构
 if /bin/arch &>/dev/null; then
@@ -135,13 +149,19 @@ else
         done
     fi
     if_success $Text3 $Text4 $ReturnStatus
-fi
 
-# 配置Clash仪表盘
-Work_Dir=$(cd $(dirname $0); pwd)
-Dashboard_Dir="${Work_Dir}/dashboard/public"
-sed -ri "s@^# external-ui:.*@external-ui: ${Dashboard_Dir}@g" $Conf_Dir/config.yaml
-sed -r -i '/^secret: /s@(secret: ).*@\1'${Secret}'@g' $Conf_Dir/config.yaml
+    # 更新配置项
+    update_config "external-ui" "${Server_Dir}/dashboard/public"
+    update_config "secret" "$Secret"
+    update_config "port" "7890"
+    update_config "socks-port" "7891"
+    update_config "redir-port" "7892"
+    update_config "allow-lan" "true"
+    update_config "mode" "rule"
+    update_config "log-level" "silent"
+    update_config "external-controller" "'127.0.0.1:6006'"
+
+fi
 
 # 检查logs目录是否存在，如果不存在则创建
 if [ ! -d "logs" ]; then
@@ -238,10 +258,10 @@ if ! grep -q 'function proxy_on()' ~/.bashrc || ! grep -q 'function proxy_off()'
     echo "proxy_on" >> ~/.bashrc
     echo "已添加代理函数到 .bashrc，并设置为自动执行。\n"
 else
-    echo "代理函数已存在于 .bashrc 中，无需重复添加"
+    echo "代理函数已存在于 .bashrc 中，无需重复添加\n"
 fi
 
-echo -e "请执行以下命令重启系统代理: proxy_on\n"
+echo -e "请执行以下命令启动系统代理: proxy_on\n"
 echo -e "若要临时关闭系统代理，请执行: proxy_off\n"
 echo -e "若需要彻底删除，请调用: shutdown_system\n"
 

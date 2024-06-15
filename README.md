@@ -61,34 +61,37 @@ cd clash-for-AutoDL
 - 运行启动脚本
 
 ```bash
-$ source start.sh
+source start.sh
 
 正在检测订阅地址...
 Clash订阅地址可访问！                                      [  OK  ]
 
 正在下载Clash配置文件...
 配置文件config.yaml下载成功！                              [  OK  ]
+日志文件 logs/clash.log 已存在。
 
 正在启动Clash服务...
 服务启动成功！                                             [  OK  ]
 
-Clash Dashboard 访问地址：http://<ip>:6006/ui
-Secret：xxxxxxxxxxxxx
+Clash Dashboard 访问地址: http://<ip>:6006/ui
+Secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-请执行以下命令开启系统代理: proxy_on
+已添加代理函数到 .bashrc，并设置为自动执行。\n
+请执行以下命令启动系统代理: proxy_on
 
 若要临时关闭系统代理，请执行: proxy_off
 
-```
+若需要彻底删除，请调用: shutdown_system
 
-```bash
-proxy_on
+[√] 已开启代理
+
 ```
 
 - 检查服务端口
 
 ```bash
-$ netstat -tln | grep -E '6006|789.'
+netstat -tln | grep -E '6006|789.'
+
 tcp        0      0 127.0.0.1:6006          0.0.0.0:*               LISTEN     
 tcp6       0      0 :::7890                 :::*                    LISTEN     
 tcp6       0      0 :::7891                 :::*                    LISTEN     
@@ -100,7 +103,7 @@ tcp6       0      0 :::7892                 :::*                    LISTEN
 - 检查环境变量
 
 ```bash
-$ env | grep -E 'http_proxy|https_proxy'
+env | grep -E 'http_proxy|https_proxy'
 http_proxy=http://127.0.0.1:7890
 https_proxy=http://127.0.0.1:7890
 ```
@@ -120,23 +123,16 @@ https_proxy=http://127.0.0.1:7890
 
 ## 停止程序
 
-- 进入项目目录
-
-```bash
-cd clash-for-AutoDL
-```
-
-- 关闭服务
-
-```bash
-$ source shutdown.sh
-
-服务关闭成功，请执行以下命令关闭系统代理：proxy_off
-
-```
+- 临时停止
 
 ```bash
 proxy_off
+```
+
+- 彻底停止程序
+
+```bash
+shutdown_system
 ```
 
 然后检查程序端口、进程以及环境变量`http_proxy|https_proxy`，若都没则说明服务正常关闭。

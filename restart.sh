@@ -45,10 +45,10 @@ Log_Dir="$Server_Dir/logs"
 Text1="服务关闭成功！"
 Text2="服务关闭失败！"
 # 查询并关闭程序进程
-PID_NUM=`ps -ef | grep [c]lash-linux-a | wc -l`
-PID=`ps -ef | grep [c]lash-linux-a | awk '{print $2}'`
+PID_NUM=`ps -ef | grep [c]lash-linux | wc -l`
+PID=`ps -ef | grep [c]lash-linux | awk '{print $2}'`
 if [ $PID_NUM -ne 0 ]; then
-	kill -9 $PID
+	kill $PID &>/dev/null
   ReturnStatus=$?
 	# ps -ef | grep [c]lash-linux-a | awk '{print $2}' | xargs kill -9
 fi
