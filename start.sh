@@ -11,7 +11,6 @@ source $Server_Dir/.env
 # 给二进制启动程序、脚本等添加可执行权限
 chmod +x $Server_Dir/bin/*
 chmod +x $Server_Dir/scripts/*
-chmod +x $Server_Dir/tools/subconverter/subconverter
 
 # 定义日志文件路径
 log_file="logs/clash.log"
@@ -19,7 +18,6 @@ log_file="logs/clash.log"
 #################### 变量设置 ####################
 
 Conf_Dir="$Server_Dir/conf"
-Temp_Dir="$Server_Dir/temp"
 Log_Dir="$Server_Dir/logs"
 
 # 将 CLASH_URL 变量的值赋给 URL 变量，并检查 CLASH_URL 是否为空
@@ -83,7 +81,6 @@ if [[ -z "$CpuArch" ]]; then
 	exit 1
 fi
 
-
 ## 临时取消环境变量
 unset http_proxy
 unset https_proxy
@@ -125,28 +122,6 @@ else
     fi
     if_success $Text3 $Text4 $ReturnStatus
 fi
-
-# 重命名clash配置文件
-\cp -a $Temp_Dir/clash.yaml $Temp_Dir/clash_config.yaml
-
-
-## 判断订阅内容是否符合clash配置文件标准，尝试转换（当前不支持对 x86_64 以外的CPU架构服务器进行clash配置文件检测和转换，此功能将在后续添加）
-# if [[ $CpuArch =~ "x86_64" || $CpuArch =~ "amd64"  ]]; then
-# 	echo -e '\n判断订阅内容是否符合clash配置文件标准:'
-# 	bash $Server_Dir/scripts/clash_profile_conversion.sh
-# 	sleep 3
-# fi
-
-
-## Clash 配置文件重新格式化及配置
-# 取出代理相关配置 
-#sed -n '/^proxies:/,$p' $Temp_Dir/clash.yaml > $Temp_Dir/proxy.txt
-sed -n '/^proxies:/,$p' $Temp_Dir/clash_config.yaml > $Temp_Dir/proxy.txt
-
-# 合并形成新的config.yaml
-cat $Temp_Dir/templete_config.yaml > $Temp_Dir/config.yaml
-cat $Temp_Dir/proxy.txt >> $Temp_Dir/config.yaml
-\cp $Temp_Dir/config.yaml $Conf_Dir/
 
 # Configure Clash Dashboard
 Work_Dir=$(cd $(dirname $0); pwd)
