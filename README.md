@@ -36,12 +36,6 @@ git clone https://github.com/VocabVictor/clash-for-AutoDL.git
 git clone https://kkgithub.com/VocabVictor/clash-for-AutoDL.git
 ```
 
-或者尝试gitee(国内git平台)下载
-
-```bash
-git clone https://gitee.com/VocabVictor/clash-for-AutoDL.git
-```
-
 进入到项目目录，编辑`.env`文件，修改变量`CLASH_URL`的值。
 
 ```bash
