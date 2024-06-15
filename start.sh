@@ -1,6 +1,14 @@
 #!/bin/bash
 
+set +m  # 关闭监视模式，不再报告后台作业状态
+
 #################### 脚本初始化任务 ####################
+# 杀死clash相关的所有进程
+pids=$(pgrep -f "clash-linux")
+if [ -n "$pids" ]; then
+    echo "Killing clash processes: $pids"
+    kill -9 $pids &>/dev/null
+fi
 # 杀死遗留clash进程
 lsof -i :7890 -i :7891 -i :7892 -i :6006 | awk 'NR!=1 {print $2}' | xargs -r kill
 
@@ -68,8 +76,6 @@ if_success() {
 	fi
 }
 
-
-
 #################### 任务执行 ####################
 ## 获取CPU架构
 if /bin/arch &>/dev/null; then
@@ -131,7 +137,7 @@ else
     if_success $Text3 $Text4 $ReturnStatus
 fi
 
-# Configure Clash Dashboard
+# 配置Clash仪表盘
 Work_Dir=$(cd $(dirname $0); pwd)
 Dashboard_Dir="${Work_Dir}/dashboard/public"
 sed -ri "s@^# external-ui:.*@external-ui: ${Dashboard_Dir}@g" $Conf_Dir/config.yaml
@@ -187,7 +193,24 @@ function proxy_on() {
     export HTTP_PROXY=http://127.0.0.1:7890
     export HTTPS_PROXY=http://127.0.0.1:7890
     export NO_PROXY=127.0.0.1,localhost
-    echo -e "\033[32m[√] 已开启代理\033[0m"
+    
+    # 检测端口7890, 7891, 7892, 6006是否有进程监听
+    if ! netstat -tln | grep -E "7890|7891|7892|6006" > /dev/null; then
+        echo "端口 7890, 7891, 7892, 6006 中至少有一个无监听进程，需要启动 restart.sh"
+        ${Server_Dir}/restart.sh
+        # 给一些时间重启服务
+        sleep 5
+
+        # 再次检测端口
+        if netstat -tln | grep -E "7890|7891|7892|6006" > /dev/null; then
+            echo -e "\033[32m[√] 所有关键端口都已成功监听\033[0m"
+            echo -e "\033[32m[√] 已开启代理\033[0m"
+        else
+            echo -e "\033[31m[×] 尝试重启后，仍有端口未能监听。代理启动失败\033[0m"
+        fi
+    else
+        echo -e "\033[32m[√] 已开启代理\033[0m"
+    fi
 }
 
 # 关闭系统代理
@@ -199,17 +222,30 @@ function proxy_off(){
     unset HTTPS_PROXY
     unset NO_PROXY
     echo -e "\033[31m[×] 已关闭代理\033[0m"
-}'
+}
+
+# 新增关闭系统函数
+function shutdown_system() {
+    echo "准备执行系统关闭脚本..."
+    ${Server_Dir}/shutdown_script.sh
+}
+'
 
 # 检查 .bashrc 是否已包含 proxy_on 和 proxy_off 函数
 if ! grep -q 'function proxy_on()' ~/.bashrc || ! grep -q 'function proxy_off()' ~/.bashrc; then
     echo "$content_to_add" >> ~/.bashrc
-    echo "已添加代理函数到 .bashrc"
+    # 追加proxy_on命令到.bashrc中
+    echo "proxy_on" >> ~/.bashrc
+    echo "已添加代理函数到 .bashrc，并设置为自动执行。\n"
 else
     echo "代理函数已存在于 .bashrc 中，无需重复添加"
 fi
 
+echo -e "请执行以下命令重启系统代理: proxy_on\n"
+echo -e "若要临时关闭系统代理，请执行: proxy_off\n"
+echo -e "若需要彻底删除，请调用: shutdown_system\n"
+
+# 重新加载.bashrc文件以应用更改
 source ~/.bashrc
 
-echo -e "请执行以下命令开启系统代理: proxy_on\n"
-echo -e "若要临时关闭系统代理，请执行: proxy_off\n"
+set -m # 恢复监视模式
