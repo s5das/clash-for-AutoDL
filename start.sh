@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #################### 脚本初始化任务 ####################
+# 杀死遗留clash进程
+lsof -i :7890 -i :7891 -i :7892 -i :6006 | awk 'NR!=1 {print $2}' | xargs -r kill
 
 # 获取脚本工作目录绝对路径
 export Server_Dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
@@ -10,7 +12,6 @@ source $Server_Dir/.env
 
 # 给二进制启动程序、脚本等添加可执行权限
 chmod +x $Server_Dir/bin/*
-chmod +x $Server_Dir/scripts/*
 
 # 定义日志文件路径
 log_file="logs/clash.log"
@@ -70,10 +71,17 @@ if_success() {
 
 
 #################### 任务执行 ####################
-
-## 获取CPU架构信息
-# Source the script to get CPU architecture
-source $Server_Dir/scripts/get_cpu_arch.sh
+## 获取CPU架构
+if /bin/arch &>/dev/null; then
+	CpuArch=`/bin/arch`
+elif /usr/bin/arch &>/dev/null; then
+	CpuArch=`/usr/bin/arch`
+elif /bin/uname -m &>/dev/null; then
+	CpuArch=`/bin/uname -m`
+else
+	echo -e "\033[31m\n[ERROR] Failed to obtain CPU architecture！\033[0m"
+	exit 1
+fi
 
 # Check if we obtained CPU architecture
 if [[ -z "$CpuArch" ]]; then
