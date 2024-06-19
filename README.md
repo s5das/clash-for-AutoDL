@@ -36,6 +36,8 @@ git clone https://github.com/VocabVictor/clash-for-AutoDL.git
 git clone https://kkgithub.com/VocabVictor/clash-for-AutoDL.git
 ```
 
+![1.png](https://s2.loli.net/2024/06/20/8e4VzyTYZSGhPsC.png)
+
 进入到项目目录，编辑`.env`文件，修改变量`CLASH_URL`的值。
 
 ```bash
@@ -43,6 +45,10 @@ cd clash-for-AutoDL
 cp .env.example .env
 vim .env
 ```
+
+![2.png](https://s2.loli.net/2024/06/20/OXfREWDBgvjw4Kb.png)
+
+![3.png](https://s2.loli.net/2024/06/20/S4t8ZlVjiOKuo7n.png)
 
 > **注意：** `.env` 文件中的变量 `CLASH_SECRET` 为自定义 Clash Secret，值为空时，脚本将自动生成随机字符串。
 
@@ -57,6 +63,17 @@ vim .env
 ```bash
 cd clash-for-AutoDL
 ```
+
+![4.png](https://s2.loli.net/2024/06/20/9yz4WwdoqrsCQt2.png)
+
+由于现在AutoDL平台上的所有镜像都没有lsof，该工具是脚本中检测端口是否被占用的，所以需要安装一下。
+
+```bash
+apt-get update
+apt-get install lsof
+```
+
+![5.png](https://s2.loli.net/2024/06/20/otEXxVMDOrez62Q.png)
 
 - 运行启动脚本
 
@@ -87,16 +104,21 @@ Secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ```
 
+![6.png](https://s2.loli.net/2024/06/20/txmaFbIAQpY2nES.png)
+
+
 - 检查服务端口
 
 ```bash
-netstat -tln | grep -E '6006|789.'
+lsof -i -P -n | grep LISTEN | grep -E ':6006|:789[0-9]'
 
 tcp        0      0 127.0.0.1:6006          0.0.0.0:*               LISTEN     
 tcp6       0      0 :::7890                 :::*                    LISTEN     
 tcp6       0      0 :::7891                 :::*                    LISTEN     
 tcp6       0      0 :::7892                 :::*                    LISTEN
 ```
+
+![7.png](https://s2.loli.net/2024/06/20/WMVzH431c8gARPw.png)
 
 6006是AutoDL平台上，GPU服务器唯一开放的外网端口。在官方没有修改端口的情况下，请勿修改相关配置。
 
@@ -107,6 +129,8 @@ env | grep -E 'http_proxy|https_proxy'
 http_proxy=http://127.0.0.1:7890
 https_proxy=http://127.0.0.1:7890
 ```
+
+![8.png](https://s2.loli.net/2024/06/20/niajqWtDpfZTJdV.png)
 
 以上步骤如果正常，说明服务clash程序启动成功，现在就可以体验高速下载github资源了。
 
@@ -128,12 +152,15 @@ https_proxy=http://127.0.0.1:7890
 ```bash
 proxy_off
 ```
+![9.png](https://s2.loli.net/2024/06/20/FwoBc6COzYybl5Z.png)
 
 - 彻底停止程序
 
 ```bash
 shutdown_system
 ```
+
+![10.png](https://s2.loli.net/2024/06/20/p6CmIkvycFzTHiE.png)
 
 然后检查程序端口、进程以及环境变量`http_proxy|https_proxy`，若都没则说明服务正常关闭。
 
