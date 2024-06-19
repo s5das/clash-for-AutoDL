@@ -122,8 +122,6 @@ tcp6       0      0 :::7892                 :::*                    LISTEN
 
 ![7.png](https://s2.loli.net/2024/06/20/WMVzH431c8gARPw.png)
 
-6006是AutoDL平台上，GPU服务器唯一开放的外网端口。在官方没有修改端口的情况下，请勿修改相关配置。
-
 - 检查环境变量
 
 ```bash
@@ -170,15 +168,66 @@ shutdown_system
 
 ## Clash Dashboard
 
-- 访问 Clash Dashboard
+- 安装并使用ngork
 
-通过浏览器访问 `start.sh` 执行成功后输出的地址，例如：<http://192.168.0.1:6006/ui>
+由于监管要求，AutoDL平台上禁止个人用户开放外网端口，所以需要使用ngrok进行内网穿透。
+
+ngrog是一个外网映射工具，简单理解就是当你使用它之后，会给你生产一个域名，别人就可以通过这个域名来访问你的电脑了。
+
+使用ngrok前，需要先安装ngrok。
+
+```bash
+ curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list && sudo apt update && sudo apt install ngrok
+```
+
+![11.png](https://s2.loli.net/2024/06/20/uCi94eqBEJUafS3.png)
+
+- 启动ngrok
+
+安装成功后，我们先到ngork官网下载获取token，首先点击下面的链接注册登录，进入首页
+
+[Ngork](https://dashboard.ngrok.com/login)
+
+![12.png](https://s2.loli.net/2024/06/20/85kmWYwPQcjRZCB.png)
+
+红框处即为你的token，复制一整条命令，然后在终端中运行。
+
+- 映射端口
+
+![13.png](https://s2.loli.net/2024/06/20/J8KftF1hm736WsB.png)
+
+打开新的shell，运行下面的命令，映射6006端口
+
+```bash
+proxy_off
+ngrok http 6006
+```
+
+![14.png](https://s2.loli.net/2024/06/20/FYJ4Bx37ovcemKt.png)
+
+![15.png](https://s2.loli.net/2024/06/20/tGRdS2HnXKxPr7U.png)
 
 - 登录管理界面
 
-在`API Base URL`一栏中输入：http://\<ip\>:6006 ，在`Secret(optional)`一栏中输入启动成功后输出的Secret。
+点击链接（例如图中是https://078d-58-144-141-213.ngrok-free.app.ngrok.io，要加上/ui），跳转到中间页面
+
+![16.png](https://s2.loli.net/2024/06/20/oUykYI7zR8mxtri.png)
+
+点击`Visit Site`, 跳转到管理界面
+
+![17.png](https://s2.loli.net/2024/06/20/HzNquhIxLkPecTm.png)
+
+- 最后的设置
+
+在`API Base URL`一栏中输入ngork的映射地址（例如图中是https://078d-58-144-141-213.ngrok-free.app.ngrok.io） ，在`Secret(optional)`一栏中输入启动成功后输出的Secret。
+
+Secret忘记了，也可以上conf/config.yaml文件中查看。
 
 点击Add并选择刚刚输入的管理界面地址，之后便可在浏览器上进行一些配置。
+
+最后，就得到了一个和Clash for Windows用法类似的Clash Dashboard管理界面。
+
+![18.png](https://s2.loli.net/2024/06/20/pLRhr7WQiCZDBY3.png)
 
 - 更多教程
 

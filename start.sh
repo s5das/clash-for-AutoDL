@@ -285,7 +285,7 @@ function proxy_off(){
     echo -e "请执行以下命令启动系统代理: proxy_on\n"
     echo -e "若要临时关闭系统代理，请执行: proxy_off\n"
     echo -e "若需要彻底删除，请调用: shutdown_system\n"
-if
+fi
 
 # 重新加载.bashrc文件以应用更改
 if [[ $Status -eq 0 ]]; then

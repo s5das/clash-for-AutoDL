@@ -24,7 +24,7 @@ unset HTTPS_PROXY
 unset NO_PROXY
 
 # 定义要删除的函数名
-functions_to_remove=("proxy_on" "proxy_off")
+functions_to_remove=("proxy_on" "proxy_off" "shutdown_system")
 
 # 遍历函数名数组
 for func in "${functions_to_remove[@]}"; do
@@ -34,6 +34,7 @@ done
 
 sed -i "/^# 开启系统代理/d" ~/.bashrc
 sed -i "/^# 关闭系统代理/d" ~/.bashrc
+sed -i "/^# 新增关闭系统函数/d" ~/.bashrc
 
 # 删除自动执行 proxy_on 命令的行
 sed -i "/proxy_on/d" ~/.bashrc
