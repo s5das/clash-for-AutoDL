@@ -6,6 +6,18 @@
 
 > **注意：** 考虑到使用本仓库中的部分同学可能是这方面的新手，以下说明中添加了一些常见问题的解答和演示图片，请仔细阅读。如果图片看不清楚，可以安装[Imaugs](https://chromewebstore.google.com/detail/imagus/immpkjjlgappgfkkfieppnmlhakdmaab)，这是个老牌的Chrome插件，可以将图片放大查看。
 
+# 功能特性
+
+- 支持自动下载Clash订阅地址，并自动配置Clash客户端。
+- 无需sudo权限
+- 支持RHEL/Debian系列Linux系统
+- 支持x86_64/aarch64平台
+- 支持自定义Clash Secret
+- 自带Clash Dashboard，可视化管理Clash。
+- 做了一些适配，适用于AutoDL平台。
+- 脚本进行了防呆措施，可自动处理常见错误。
+- 一次配置，永远起效，每打开一个新的shell，都会自动启动Clash。
+
 <br>
 
 # 使用须知
