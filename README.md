@@ -8,15 +8,17 @@
 
 # 功能特性
 
-- 支持自动下载Clash订阅地址，并自动配置Clash客户端。
-- 无需sudo权限
-- 支持RHEL/Debian系列Linux系统
-- 支持x86_64/aarch64平台
-- 支持自定义Clash Secret
-- 自带Clash Dashboard，可视化管理Clash。
-- 做了一些适配，适用于AutoDL平台。
-- 脚本进行了防呆措施，可自动处理常见错误。
-- 一次配置，永远起效，每打开一个新的shell，都会自动启动Clash。
+### 支持的功能：
+
+[x] 支持自动下载Clash订阅地址，并自动配置Clash客户端。
+[x] 无需sudo权限
+[x] 支持RHEL/Debian系列Linux系统
+[x] 支持x86_64/aarch64平台
+[x] 支持自定义Clash Secret
+[x] 自带Clash Dashboard，可视化管理Clash。
+[x] 做了一些适配，适用于AutoDL平台。
+[x] 脚本进行了防呆措施，可自动处理常见错误。
+[x] 一次配置，永远起效，每打开一个新的shell，都会自动启动Clash。
 
 <br>
 
