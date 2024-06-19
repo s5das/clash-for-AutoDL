@@ -4,6 +4,8 @@
 
 主要是为了解决我们在AutoDL平台服务器上下载GitHub等一些国外资源速度慢的问题。
 
+> **注意：** 考虑到使用本仓库中的部分同学可能是这方面的新手，以下说明中添加了一些常见问题的解答和演示图片，请仔细阅读。如果图片看不清楚，可以安装[Imaugs](https://chromewebstore.google.com/detail/imagus/immpkjjlgappgfkkfieppnmlhakdmaab)，这是个老牌的Chrome插件，可以将图片放大查看。
+
 <br>
 
 # 使用须知
