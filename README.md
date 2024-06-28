@@ -92,7 +92,7 @@ apt-get install lsof
 - 运行启动脚本
 
 ```bash
-source start.sh
+source ./start.sh
 
 正在检测订阅地址...
 Clash订阅地址可访问！                                      [  OK  ]
