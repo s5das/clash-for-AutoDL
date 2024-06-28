@@ -5,15 +5,12 @@ export Server_Dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
 set +m  # 关闭监视模式，不再报告后台作业状态
 
-# 关闭clash服务
-PID_NUM=`ps -ef | grep [c]lash-linux-a | wc -l`
-PID=`ps -ef | grep [c]lash-linux-a | awk '{print $2}'`
-if [ $PID_NUM -ne 0 ]; then
-	kill -9 $PID
-	# ps -ef | grep [c]lash-linux-a | awk '{print $2}' | xargs kill -9
+# 杀死clash相关的所有进程
+pids=$(pgrep -f "clash-linux")
+if [ -n "$pids" ]; then
+    kill $pids &>/dev/null
 fi
-# 杀死遗留clash进程
-lsof -i :7890 -i :7891 -i :7892 -i :6006 | awk 'NR!=1 {print $2}' | xargs -r kill
+
 
 # 清除环境变量
 unset http_proxy

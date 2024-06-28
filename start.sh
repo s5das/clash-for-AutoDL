@@ -10,8 +10,6 @@ pids=$(pgrep -f "clash-linux")
 if [ -n "$pids" ]; then
     kill $pids &>/dev/null
 fi
-# 杀死遗留clash进程
-lsof -i :7890 -i :7891 -i :7892 -i :6006 | awk 'NR!=1 {print $2}' | xargs -r kill
 
 # 获取脚本工作目录绝对路径
 export Server_Dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
@@ -234,25 +232,30 @@ function proxy_on() {
     export HTTP_PROXY=http://127.0.0.1:7890
     export HTTPS_PROXY=http://127.0.0.1:7890
     export NO_PROXY=127.0.0.1,localhost
-    
-    # 检测端口7890, 7891, 7892, 6006是否有进程监听
-    if ! lsof -i :7890 -i :7891 -i :7892 -i :6006 | grep -q LISTEN; then
-        echo "端口 7890, 7891, 7892, 6006 中至少有一个无监听进程，需要启动 restart.sh"
-        %s/restart.sh
-        # 给一些时间重启服务
-        sleep 5
 
-        # 再次检测端口
-        if lsof -i :7890 -i :7891 -i :7892 -i :6006 | grep -q LISTEN; then
-            echo -e "\033[32m[√] 所有关键端口都已成功监听\033[0m"
-            echo -e "\033[32m[√] 已开启代理\033[0m"
-        else
-            echo -e "\033[31m[×] 尝试重启后，仍有端口未能监听。代理启动失败\033[0m"
-        fi
-    else
+    # 检测是否有clash进程存在
+    pids=$(pgrep -f "clash-linux")
+    if [ -n "$pids" ]; then
+        echo -e "\033[32m[√] clash 进程已存在，代理已开启\033[0m"
+        return
+    fi
+
+    # 启动 restart.sh 脚本
+    %s/restart.sh
+
+    # 给一些时间重启服务
+    sleep 5
+
+    # 再次检测是否有clash进程存在
+    pids=$(pgrep -f "clash-linux")
+    if [ -n "$pids" ]; then
+        echo -e "\033[32m[√] clash 进程已成功启动\033[0m"
         echo -e "\033[32m[√] 已开启代理\033[0m"
+    else
+        echo -e "\033[31m[×] 尝试重启后，clash 进程未能启动。代理启动失败\033[0m"
     fi
 }
+
 
 # 关闭系统代理
 function proxy_off(){
