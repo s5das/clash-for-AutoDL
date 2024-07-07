@@ -22,6 +22,12 @@
 
 <br>
 
+# Todo List
+
+- [] 封装为deg安装包，支持懒人配置
+- [] 支持华为云-昇腾显卡平台的Euler系统
+- [] 惰性下载，只下载对应CPU架构的clash+
+
 # 使用须知
 
 - 使用过程中如遇到问题，请优先查已有的 [issues](https://github.com/VocabVictor/clash-for-AutoDL/issues?q=is%3Aissue+is%3Aclosed)。(你在网页上看不到issue湖或者issue很少，是因为部分issue我认为已经解决，被关闭了，请在issue中搜索关键字，或者在issue下留言。)

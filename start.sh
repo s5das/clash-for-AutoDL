@@ -224,6 +224,7 @@ fi
 if [[ $Status -eq 0 ]]; then
     # 定义要添加的内容
     content_to_add=$(printf '
+    
 # 开启系统代理
 function proxy_on() {
     export http_proxy=http://127.0.0.1:7890
@@ -268,13 +269,13 @@ function proxy_off(){
         echo -e "\033[31m[×] 已关闭代理\033[0m"
     }
 
-    # 新增关闭系统函数
-    function shutdown_system() {
-        echo "准备执行系统关闭脚本..."
-        %s/shutdown.sh
-    }
+# 新增关闭系统函数
+function shutdown_system() {
+    echo "准备执行系统关闭脚本..."
+    %s/shutdown.sh
+}
 
-    proxy_on
+proxy_on
 ' "$Server_Dir" "$Server_Dir")
 
     # 检查 .bashrc 是否已包含 proxy_on 和 proxy_off 函数
