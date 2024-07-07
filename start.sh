@@ -273,6 +273,8 @@ function proxy_off(){
         echo "准备执行系统关闭脚本..."
         %s/shutdown.sh
     }
+
+    proxy_on
 ' "$Server_Dir" "$Server_Dir")
 
     # 检查 .bashrc 是否已包含 proxy_on 和 proxy_off 函数
