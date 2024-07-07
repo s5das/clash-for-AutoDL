@@ -178,7 +178,7 @@ shutdown_system
 
 <br>
 
-## Clash Dashboard
+## Clash Dashboard (可选，不是梯子正常运行的必要选项)
 
 - 安装并使用ngork
 
