@@ -12,7 +12,7 @@ if [ -n "$pids" ]; then
 fi
 
 # 获取脚本工作目录绝对路径
-export Server_Dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+export Server_Dir="$( cd "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )"
 
 # 加载.env变量文件
 source $Server_Dir/.env
@@ -91,6 +91,43 @@ update_config() {
     fi
 }
 
+# 函数：安全删除文件
+safe_remove() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        rm "$file"
+        echo "已删除文件: $file"
+    else
+        echo "文件不存在，跳过删除: $file"
+    fi
+}
+
+#################### 鲁棒设置 #################### 
+
+# 删除日志
+rm -rf "$Log_Dir"
+
+# 定义要删除的函数名
+functions_to_remove=("proxy_on" "proxy_off" "shutdown_system")
+
+# 遍历函数名数组
+for func in "${functions_to_remove[@]}"; do
+    # 使用sed命令删除函数定义及其结束
+    sed -i -E "/^function[[:space:]]+${func}[[:space:]]*()/,/^}$/d" ~/.bashrc
+done
+
+sed -i "/^# 开启系统代理/d" ~/.bashrc
+sed -i "/^# 关闭系统代理/d" ~/.bashrc
+sed -i "/^# 新增关闭系统函数/d" ~/.bashrc
+sed -i "/^# 检查clash进程是否正常启动/d" ~/.bashrc
+
+# 删除自动执行 proxy_on 命令的行
+sed -i "/proxy_on/d" ~/.bashrc
+
+# 可能还需要删除与proxy_on相关的注释或空行，确保没有遗漏
+sed -i "/^#.*proxy_on/d" ~/.bashrc  # 删除所有含 proxy_on 的注释行
+sed -i '/^$/N;/^\n$/D' ~/.bashrc    # 删除连续的空行
+
 #################### 任务执行 ####################
 ## 获取CPU架构
 if /bin/arch &>/dev/null; then
@@ -111,7 +148,6 @@ if [[ $Status -eq 0 ]]; then
   fi
 fi 
 
-
 ## 临时取消环境变量
 unset http_proxy
 unset https_proxy
@@ -119,6 +155,8 @@ unset no_proxy
 unset HTTP_PROXY
 unset HTTPS_PROXY
 unset NO_PROXY
+
+#################### 设置config.yaml #################### 
 
 if [[ $Status -eq 0 ]]; then
     # 检查是否存在配置文件
@@ -167,29 +205,21 @@ if [[ $Status -eq 0 ]]; then
             update_config "external-controller" "'127.0.0.1:6006'"
 
         fi
-
-
-
     fi
 fi
 
-if [[ $Status -eq 0 ]]; then
-    # 检查logs目录是否存在，如果不存在则创建
-    if [ ! -d "logs" ]; then
-    mkdir -p "logs"
-    fi
-fi
-
-if [[ $Status -eq 0 ]]; then
-    # 检查clash.log文件是否存在，如果不存在则创建
-    if [ ! -f "$log_file" ]; then
-    touch "$log_file"
-    echo "日志文件 $log_file 已创建。"
+####################  检查logs目录是否存在,不存在则创建 #################### 
+if [ ! -d "$Log_Dir" ]; then
+    mkdir -p "$Log_Dir"
+    if [ $? -eq 0 ]; then
+        echo "成功创建logs目录: $Log_Dir"
     else
-    echo "日志文件 $log_file 已存在。"
+        echo "创建logs目录失败,请检查权限"
+        exit 1
     fi
 fi
 
+#################### 启动clash #################### 
 if [[ $Status -eq 0 ]]; then
     ## 启动Clash服务
     echo -e '\n正在启动Clash服务...'
@@ -224,7 +254,7 @@ fi
 if [[ $Status -eq 0 ]]; then
     # 定义要添加的内容
     content_to_add=$(printf '
-    
+
 # 开启系统代理
 function proxy_on() {
     export http_proxy=http://127.0.0.1:7890
@@ -234,29 +264,42 @@ function proxy_on() {
     export HTTPS_PROXY=http://127.0.0.1:7890
     export NO_PROXY=127.0.0.1,localhost
 
-    # 检测是否有clash进程存在
-    pids=$(pgrep -f "clash-linux")
-    if [ -n "$pids" ]; then
-        echo -e "\033[32m[√] clash 进程已存在，代理已开启\033[0m"
-        return
+    # 检查logs目录是否存在,不存在则创建
+    if [ ! -d "%s/logs" ]; then
+        mkdir "%s/logs"
+        if [ $? -eq 0 ]; then
+            %s/restart.sh
+            sleep 5
+            if ! pgrep -f "clash-linux" > /dev/null; then
+                echo -e "\033[31m[×] 尝试重启后，clash 进程未能启动。代理启动失败\033[0m"
+                exit 1
+            fi
+        else
+            echo "创建logs目录失败,请检查权限"
+            return            
+        fi
     fi
-
-    # 启动 restart.sh 脚本
-    %s/restart.sh
-
-    # 给一些时间重启服务
-    sleep 5
 
     # 再次检测是否有clash进程存在
     pids=$(pgrep -f "clash-linux")
     if [ -n "$pids" ]; then
         echo -e "\033[32m[√] clash 进程已成功启动\033[0m"
         echo -e "\033[32m[√] 已开启代理\033[0m"
+        return
+    fi
+
+    # 启动 restart.sh 脚本
+    %s/restart.sh
+    
+    pids=$(pgrep -f "clash-linux")
+    if [ -n "$pids" ]; then
+        echo -e "\033[32m[√] clash 进程已成功启动\033[0m"
+        echo -e "\033[32m[√] 已开启代理\033[0m"
+        return
     else
         echo -e "\033[31m[×] 尝试重启后，clash 进程未能启动。代理启动失败\033[0m"
     fi
 }
-
 
 # 关闭系统代理
 function proxy_off(){
@@ -266,8 +309,8 @@ function proxy_off(){
     unset HTTP_PROXY
     unset HTTPS_PROXY
     unset NO_PROXY
-        echo -e "\033[31m[×] 已关闭代理\033[0m"
-    }
+    echo -e "\033[31m[×] 已关闭代理\033[0m"
+}
 
 # 新增关闭系统函数
 function shutdown_system() {
@@ -276,13 +319,11 @@ function shutdown_system() {
 }
 
 proxy_on
-' "$Server_Dir" "$Server_Dir")
+' "$Server_Dir" "$Server_Dir" "$Server_Dir" "$Server_Dir" "$Server_Dir")
 
     # 检查 .bashrc 是否已包含 proxy_on 和 proxy_off 函数
     if ! grep -q 'function proxy_on()' ~/.bashrc || ! grep -q 'function proxy_off()' ~/.bashrc; then
         echo "$content_to_add" >> ~/.bashrc
-        # 追加proxy_on命令到.bashrc中
-        echo "proxy_on" >> ~/.bashrc
         echo "已添加代理函数到 .bashrc，并设置为自动执行。\n"
     else
         echo "代理函数已存在于 .bashrc 中，无需重复添加\n"
@@ -293,7 +334,7 @@ proxy_on
     echo -e "若需要彻底删除，请调用: shutdown_system\n"
 fi
 
-# 重新加载.bashrc文件以应用更改
+####################  重新加载.bashrc文件以应用更改 #################### 
 if [[ $Status -eq 0 ]]; then
     source ~/.bashrc
 fi

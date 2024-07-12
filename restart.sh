@@ -37,7 +37,7 @@ if_success() {
 }
 
 # 定义路径变量
-Server_Dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+Server_Dir="$( cd "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )"
 Conf_Dir="$Server_Dir/conf"
 Log_Dir="$Server_Dir/logs"
 
