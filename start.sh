@@ -24,7 +24,6 @@ chmod +x $Server_Dir/bin/*
 log_file="logs/clash.log"
 
 #################### 变量设置 ####################
-
 Conf_Dir="$Server_Dir/conf"
 Log_Dir="$Server_Dir/logs"
 
@@ -41,39 +40,39 @@ Config_File="$Conf_Dir/config.yaml"
 
 # 自定义action函数，实现通用action功能
 success() {
-	echo -en "\\033[60G[\\033[1;32m  OK  \\033[0;39m]\r"
-	return 0
+    echo -en "\033[60G[\033[1;32m  OK  \033[0;39m]\r"
+    return 0
 }
 
 failure() {
-	local rc=$?
-	echo -en "\\033[60G[\\033[1;31mFAILED\\033[0;39m]\r"
-	[ -x /bin/plymouth ] && /bin/plymouth --details
-	return $rc
+    local rc=$?
+    echo -en "\033[60G[\033[1;31mFAILED\033[0;39m]\r"
+    [ -x /bin/plymouth ] && /bin/plymouth --details
+    return $rc
 }
 
 action() {
-	local STRING rc
+    local STRING rc
 
-	STRING=$1
-	echo -n "$STRING "
-	shift
-	"$@" && success $"$STRING" || failure $"$STRING"
-	rc=$?
-	echo
-	return $rc
+    STRING=$1
+    echo -n "$STRING "
+    shift
+    "$@" && success $"$STRING" || failure $"$STRING"
+    rc=$?
+    echo
+    return $rc
 }
 
-# 判断命令是否正常执行 函数
+# 判断命令是否正常执行的函数
 if_success() {
-	local ReturnStatus=$3
-	if [ $ReturnStatus -eq 0 ]; then
-		action "$1" /bin/true
+    local ReturnStatus=${3:-0}  # 如果 \$3 未设置或为空，则默认为 0
+    if [ "$ReturnStatus" -eq 0 ]; then
+        action "$1" /bin/true
         Status=0  # 脚本运行状态设置为0，表示成功
-	else
-		action "$2" /bin/false
+    else
+        action "$2" /bin/false
         Status=1  # 脚本运行状态设置为1，表示失败
-	fi
+    fi
 }
 
 # 检查并更新配置
@@ -102,7 +101,7 @@ safe_remove() {
     fi
 }
 
-#################### 鲁棒设置 #################### 
+#################### 鲁棒设置 ####################
 
 # 删除日志
 rm -rf "$Log_Dir"
@@ -131,13 +130,13 @@ sed -i '/^$/N;/^\n$/D' ~/.bashrc    # 删除连续的空行
 #################### 任务执行 ####################
 ## 获取CPU架构
 if /bin/arch &>/dev/null; then
-	CpuArch=`/bin/arch`
+    CpuArch=`/bin/arch`
 elif /usr/bin/arch &>/dev/null; then
-	CpuArch=`/usr/bin/arch`
+    CpuArch=`/usr/bin/arch`
 elif /bin/uname -m &>/dev/null; then
-	CpuArch=`/bin/uname -m`
+    CpuArch=`/bin/uname -m`
 else
-	echo -e "\033[31m\n[ERROR] Failed to obtain CPU architecture！\033[0m"
+    echo -e "\033[31m\n[ERROR] Failed to obtain CPU architecture！\033[0m"
 fi
 
 # Check if we obtained CPU architecture, and Status is still 0
@@ -156,7 +155,7 @@ unset HTTP_PROXY
 unset HTTPS_PROXY
 unset NO_PROXY
 
-#################### 设置config.yaml #################### 
+#################### 设置config.yaml ####################
 
 if [[ $Status -eq 0 ]]; then
     # 检查是否存在配置文件
@@ -203,12 +202,11 @@ if [[ $Status -eq 0 ]]; then
             update_config "mode" "rule"
             update_config "log-level" "silent"
             update_config "external-controller" "'127.0.0.1:6006'"
-
         fi
     fi
 fi
 
-####################  检查logs目录是否存在,不存在则创建 #################### 
+####################  检查logs目录是否存在,不存在则创建 ####################
 if [ ! -d "$Log_Dir" ]; then
     mkdir -p "$Log_Dir"
     if [ $? -eq 0 ]; then
@@ -219,7 +217,7 @@ if [ ! -d "$Log_Dir" ]; then
     fi
 fi
 
-#################### 启动clash #################### 
+#################### 启动clash ####################
 if [[ $Status -eq 0 ]]; then
     ## 启动Clash服务
     echo -e '\n正在启动Clash服务...'
@@ -334,7 +332,7 @@ proxy_on
     echo -e "若需要彻底删除，请调用: shutdown_system\n"
 fi
 
-####################  重新加载.bashrc文件以应用更改 #################### 
+####################  重新加载.bashrc文件以应用更改 ####################
 if [[ $Status -eq 0 ]]; then
     source ~/.bashrc
 fi

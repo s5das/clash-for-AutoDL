@@ -1,90 +1,112 @@
 #!/bin/bash
 
+# 定义颜色和样式
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
 # 自定义action函数，实现通用action功能
 success() {
-  echo -en "\\033[60G[\\033[1;32m  OK  \\033[0;39m]\r"
+  echo -e "${GREEN}[  OK  ]${NC}"
   return 0
 }
 
 failure() {
   local rc=$?
-  echo -en "\\033[60G[\\033[1;31mFAILED\\033[0;39m]\r"
+  echo -e "${RED}[FAILED]${NC}"
   [ -x /bin/plymouth ] && /bin/plymouth --details
   return $rc
 }
 
 action() {
-  local STRING rc
-
-  STRING=$1
+  local STRING=$1
   echo -n "$STRING "
   shift
-  "$@" && success $"$STRING" || failure $"$STRING"
-  rc=$?
+  "$@" && success || failure
+  local rc=$?
   echo
   return $rc
 }
 
 # 函数，判断命令是否正常执行
 if_success() {
-  local ReturnStatus=$3
-  if [ "$ReturnStatus" -eq 0 ]; then
-          action "$1" /bin/true
+  local message_success=$1
+  local message_failure=$2
+  local return_status=${3:-0}  # 如果 \$3 未设置或为空，则默认为 0
+  
+  if [ "$return_status" -eq 0 ]; then
+    action "$message_success" /bin/true
   else
-          action "$2" /bin/false
-          exit 1
+    action "$message_failure" /bin/false
+    exit 1
   fi
 }
 
 # 定义路径变量
-Server_Dir="$( cd "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )"
+Server_Dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 Conf_Dir="$Server_Dir/conf"
 Log_Dir="$Server_Dir/logs"
 
-## 关闭clash服务
-Text1="服务关闭成功！"
-Text2="服务关闭失败！"
-# 查询并关闭程序进程
-PID_NUM=$(ps -ef | grep [c]lash-linux | wc -l)
-PID=$(ps -ef | grep [c]lash-linux | awk '{print $2}')
-ReturnStatus=0
-if [ "$PID_NUM" -ne 0 ]; then
-  kill "$PID" &>/dev/null
-  ReturnStatus=$?
-  # ps -ef | grep [c]lash-linux-a | awk '{print $2}' | xargs kill -9
-fi
-if_success "$Text1" "$Text2" "$ReturnStatus"
+# 关闭clash服务
+close_clash_service() {
+  local pid_num=$(pgrep -c clash-linux)
+  local pid=$(pgrep clash-linux)
+  local return_status=0
+  
+  if [ "$pid_num" -ne 0 ]; then
+    kill "$pid" &>/dev/null
+    return_status=$?
+  fi
+  
+  if_success "服务关闭成功！" "服务关闭失败！" "$return_status"
+}
 
-sleep 3
+# 获取CPU架构
+get_cpu_arch() {
+  if /bin/arch &>/dev/null; then
+    echo $(/bin/arch)
+  elif /usr/bin/arch &>/dev/null; then
+    echo $(/usr/bin/arch)
+  elif /bin/uname -m &>/dev/null; then
+    echo $(/bin/uname -m)
+  else
+    echo -e "${RED}[ERROR] Failed to obtain CPU architecture!${NC}"
+    exit 1
+  fi
+}
 
-## 获取CPU架构
-if /bin/arch &>/dev/null; then
-  CpuArch=$(/bin/arch)
-elif /usr/bin/arch &>/dev/null; then
-  CpuArch=$(/usr/bin/arch)
-elif /bin/uname -m &>/dev/null; then
-  CpuArch=$(/bin/uname -m)
-else
-  echo -e "\033[31m\n[ERROR] Failed to obtain CPU architecture！\033[0m"
-  exit 1
-fi
+# 启动clash服务
+start_clash_service() {
+  local cpu_arch=$(get_cpu_arch)
+  local clash_binary
+  
+  case $cpu_arch in
+    x86_64)
+      clash_binary="clash-linux-amd64"
+      ;;
+    aarch64|arm64)
+      clash_binary="clash-linux-arm64"
+      ;;
+    armv7)
+      clash_binary="clash-linux-armv7"
+      ;;
+    *)
+      echo -e "${RED}[ERROR] Unsupported CPU Architecture!${NC}"
+      exit 1
+      ;;
+  esac
+  
+  nohup "$Server_Dir/bin/$clash_binary" -d "$Conf_Dir" &> "$Log_Dir/clash.log" &
+  local return_status=$?
+  
+  if_success "服务启动成功！" "服务启动失败！" "$return_status"
+}
 
-## 重启启动clash服务
-Text5="服务启动成功！"
-Text6="服务启动失败！"
-if [[ $CpuArch =~ "x86_64" ]]; then
-  nohup "$Server_Dir/bin/clash-linux-amd64" -d "$Conf_Dir" &> "$Log_Dir/clash.log" &
-  ReturnStatus=$?
-  if_success "$Text5" "$Text6" "$ReturnStatus"
-elif [[ $CpuArch =~ "aarch64" ||  $CpuArch =~ "arm64" ]]; then
-  nohup "$Server_Dir/bin/clash-linux-arm64" -d "$Conf_Dir" &> "$Log_Dir/clash.log" &
-  ReturnStatus=$?
-  if_success "$Text5" "$Text6" "$ReturnStatus"
-elif [[ $CpuArch =~ "armv7" ]]; then
-  nohup "$Server_Dir/bin/clash-linux-armv7" -d "$Conf_Dir" &> "$Log_Dir/clash.log" &
-  ReturnStatus=$?
-  if_success "$Text5" "$Text6" "$ReturnStatus"
-else
-  echo -e "\033[31m\n[ERROR] Unsupported CPU Architecture！\033[0m"
-  exit 1
-fi
+# 主程序
+main() {
+  close_clash_service
+  sleep 3
+  start_clash_service
+}
+
+main
