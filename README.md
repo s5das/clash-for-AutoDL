@@ -8,6 +8,8 @@
 
 > **注意：** 建议提issue的同学，可以给自己的GitHub账户绑定邮箱，这样子一旦收到反馈，会及时通知到你。
 
+ > **注意：** Ping使用的是 ICMP（Internet Control Message Protocol） 协议，是网络层协议，Clash 只会代理传输层的TCP和UDP流量，因此无论clash是否能够正常工作，ping google.com 都是不会有效果的。
+
 # 功能特性
 
 - [x] 支持自动下载Clash订阅地址，并自动配置Clash客户端。
