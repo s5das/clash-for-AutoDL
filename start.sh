@@ -172,7 +172,7 @@ if [[ $Status -eq 0 ]]; then
 
         if [[ $Status -eq 0 ]]; then
             # 下载配置文件
-            echo -e '\n正在下载Clash配置文件...'
+            echo -e '\n正在载Clash配置文件...'
             Text3="配置文件config.yaml下载成功！"
             Text4="配置文件config.yaml下载失败，退出启动！"
             curl -L -k -sS --retry 5 -m 10 -o $Config_File $URL
@@ -193,15 +193,16 @@ if [[ $Status -eq 0 ]]; then
             if_success $Text3 $Text4 $ReturnStatus
 
             # 更新配置项
-            update_config "external-ui" "${Server_Dir}/dashboard/public"
+            update_config "external-ui" "${CLASH_EXTERNAL_UI:-${Server_Dir}/dashboard/public}"
             update_config "secret" "$Secret"
-            update_config "port" "7890"
-            update_config "socks-port" "7891"
-            update_config "redir-port" "7892"
-            update_config "allow-lan" "true"
-            update_config "mode" "rule"
-            update_config "log-level" "silent"
-            update_config "external-controller" "'127.0.0.1:6006'"
+            update_config "mixed-port" "${CLASH_PORT:-7890}"
+            update_config "port" "${CLASH_PORT:-7890}"
+            update_config "socks-port" "${CLASH_SOCKS_PORT:-7891}"
+            update_config "redir-port" "${CLASH_REDIR_PORT:-7892}"
+            update_config "allow-lan" "${CLASH_ALLOW_LAN:-true}"
+            update_config "mode" "${CLASH_MODE:-rule}"
+            update_config "log-level" "${CLASH_LOG_LEVEL:-silent}"
+            update_config "external-controller" "'${CLASH_EXTERNAL_CONTROLLER:-127.0.0.1:6006}'"
         fi
     fi
 fi
@@ -250,86 +251,47 @@ if [[ $Status -eq 0 ]]; then
 fi
 
 if [[ $Status -eq 0 ]]; then
-    # 定义要添加的内容
-    content_to_add=$(printf '
-
+    # 定义要添加的函数内容
+    cat << 'EOF' > /tmp/clash_functions
 # 开启系统代理
 function proxy_on() {
-    export http_proxy=http://127.0.0.1:7890
-    export https_proxy=http://127.0.0.1:7890
+    export http_proxy=http://127.0.0.1:$CLASH_PORT
+    export https_proxy=http://127.0.0.1:$CLASH_PORT
     export no_proxy=127.0.0.1,localhost
-    export HTTP_PROXY=http://127.0.0.1:7890
-    export HTTPS_PROXY=http://127.0.0.1:7890
+    export HTTP_PROXY=http://127.0.0.1:$CLASH_PORT
+    export HTTPS_PROXY=http://127.0.0.1:$CLASH_PORT
     export NO_PROXY=127.0.0.1,localhost
-
-    # 检查logs目录是否存在,不存在则创建
-    if [ ! -d "%s/logs" ]; then
-        mkdir "%s/logs"
-        if [ $? -eq 0 ]; then
-            %s/restart.sh
-            sleep 5
-            if ! pgrep -f "clash-linux" > /dev/null; then
-                echo -e "\033[31m[×] 尝试重启后，clash 进程未能启动。代理启动失败\033[0m"
-                exit 1
-            fi
-        else
-            echo "创建logs目录失败,请检查权限"
-            return            
-        fi
-    fi
-
-    # 再次检测是否有clash进程存在
-    pids=$(pgrep -f "clash-linux")
-    if [ -n "$pids" ]; then
-        echo -e "\033[32m[√] clash 进程已成功启动\033[0m"
-        echo -e "\033[32m[√] 已开启代理\033[0m"
-        return
-    fi
-
-    # 启动 restart.sh 脚本
-    %s/restart.sh
-    
-    pids=$(pgrep -f "clash-linux")
-    if [ -n "$pids" ]; then
-        echo -e "\033[32m[√] clash 进程已成功启动\033[0m"
-        echo -e "\033[32m[√] 已开启代理\033[0m"
-        return
-    else
-        echo -e "\033[31m[×] 尝试重启后，clash 进程未能启动。代理启动失败\033[0m"
-    fi
+    echo -e "\033[32m[√] 已开启代理\033[0m"
 }
 
 # 关闭系统代理
-function proxy_off(){
-    unset http_proxy
-    unset https_proxy
-    unset no_proxy
-    unset HTTP_PROXY
-    unset HTTPS_PROXY
-    unset NO_PROXY
+function proxy_off() {
+    unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
     echo -e "\033[31m[×] 已关闭代理\033[0m"
 }
 
-# 新增关闭系统函数
+# 关闭系统函数
 function shutdown_system() {
     echo "准备执行系统关闭脚本..."
-    %s/shutdown.sh
+    $Server_Dir/shutdown.sh
 }
 
 proxy_on
-' "$Server_Dir" "$Server_Dir" "$Server_Dir" "$Server_Dir" "$Server_Dir")
+EOF
 
-    # 检查 .bashrc 是否已包含 proxy_on 和 proxy_off 函数
+    # 将函数添加到 .bashrc
     if ! grep -q 'function proxy_on()' ~/.bashrc || ! grep -q 'function proxy_off()' ~/.bashrc; then
-        echo "$content_to_add" >> ~/.bashrc
-        echo "已添加代理函数到 .bashrc，并设置为自动执行。\n"
+        cat /tmp/clash_functions >> ~/.bashrc
+        echo "已添加代理函数到 .bashrc，并设置为自动执行。"
     else
-        echo "代理函数已存在于 .bashrc 中，无需重复添加\n"
+        echo "代理函数已存在于 .bashrc 中，无需重复添加"
     fi
 
-    echo -e "请执行以下命令启动系统代理: proxy_on\n"
-    echo -e "若要临时关闭系统代理，请执行: proxy_off\n"
-    echo -e "若需要彻底删除，请调用: shutdown_system\n"
+    rm /tmp/clash_functions
+
+    echo -e "请执行以下命令启动系统代理: proxy_on"
+    echo -e "若要临时关闭系统代理，请执行: proxy_off"
+    echo -e "若需要彻底删除，请调用: shutdown_system"
 fi
 
 ####################  重新加载.bashrc文件以应用更改 ####################
