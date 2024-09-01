@@ -90,7 +90,7 @@ update_config() {
     fi
 }
 
-# 函数：安全删除文件
+# 数：安全删除文件
 safe_remove() {
     local file="$1"
     if [ -f "$file" ]; then
@@ -106,26 +106,14 @@ safe_remove() {
 # 删除日志
 rm -rf "$Log_Dir"
 
-# 定义要删除的函数名
+# 从 .bashrc 中删除旧的函数和相关行
 functions_to_remove=("proxy_on" "proxy_off" "shutdown_system")
-
-# 遍历函数名数组
 for func in "${functions_to_remove[@]}"; do
-    # 使用sed命令删除函数定义及其结束
-    sed -i -E "/^function[[:space:]]+${func}[[:space:]]*()/,/^}$/d" ~/.bashrc
+  sed -i -E "/^function[[:space:]]+${func}[[:space:]]*()/,/^}$/d" ~/.bashrc
 done
 
-sed -i "/^# 开启系统代理/d" ~/.bashrc
-sed -i "/^# 关闭系统代理/d" ~/.bashrc
-sed -i "/^# 新增关闭系统函数/d" ~/.bashrc
-sed -i "/^# 检查clash进程是否正常启动/d" ~/.bashrc
-
-# 删除自动执行 proxy_on 命令的行
-sed -i "/proxy_on/d" ~/.bashrc
-
-# 可能还需要删除与proxy_on相关的注释或空行，确保没有遗漏
-sed -i "/^#.*proxy_on/d" ~/.bashrc  # 删除所有含 proxy_on 的注释行
-sed -i '/^$/N;/^\n$/D' ~/.bashrc    # 删除连续的空行
+sed -i '/^# 开启系统代理/d; /^# 关闭系统代理/d; /^# 关闭系统函数/d' ~/.bashrc
+sed -i '/^$/N;/^\n$/D' ~/.bashrc
 
 #################### 任务执行 ####################
 ## 获取CPU架构
@@ -252,14 +240,14 @@ fi
 
 if [[ $Status -eq 0 ]]; then
     # 定义要添加的函数内容
-    cat << 'EOF' > /tmp/clash_functions
+    cat << EOF > /tmp/clash_functions_template
 # 开启系统代理
 function proxy_on() {
-    export http_proxy=http://127.0.0.1:$CLASH_PORT
-    export https_proxy=http://127.0.0.1:$CLASH_PORT
+    export http_proxy=http://127.0.0.1:\$CLASH_PORT
+    export https_proxy=http://127.0.0.1:\$CLASH_PORT
     export no_proxy=127.0.0.1,localhost
-    export HTTP_PROXY=http://127.0.0.1:$CLASH_PORT
-    export HTTPS_PROXY=http://127.0.0.1:$CLASH_PORT
+    export HTTP_PROXY=http://127.0.0.1:\$CLASH_PORT
+    export HTTPS_PROXY=http://127.0.0.1:\$CLASH_PORT
     export NO_PROXY=127.0.0.1,localhost
     echo -e "\033[32m[√] 已开启代理\033[0m"
 }
@@ -275,23 +263,24 @@ function shutdown_system() {
     echo "准备执行系统关闭脚本..."
     $Server_Dir/shutdown.sh
 }
-
-proxy_on
 EOF
 
-    # 将函数添加到 .bashrc
-    if ! grep -q 'function proxy_on()' ~/.bashrc || ! grep -q 'function proxy_off()' ~/.bashrc; then
-        cat /tmp/clash_functions >> ~/.bashrc
-        echo "已添加代理函数到 .bashrc，并设置为自动执行。"
-    else
-        echo "代理函数已存在于 .bashrc 中，无需重复添加"
-    fi
+    # 使用 envsubst 替换变量
+    envsubst < /tmp/clash_functions_template > /tmp/clash_functions
 
+    # 将函数追加到 .bashrc
+    cat /tmp/clash_functions >> ~/.bashrc
+    echo "已添加代理函数到 .bashrc。"
+
+    rm /tmp/clash_functions_template
     rm /tmp/clash_functions
 
     echo -e "请执行以下命令启动系统代理: proxy_on"
     echo -e "若要临时关闭系统代理，请执行: proxy_off"
     echo -e "若需要彻底删除，请调用: shutdown_system"
+
+    # 手动执行 proxy_on 函数
+    proxy_on
 fi
 
 ####################  重新加载.bashrc文件以应用更改 ####################
