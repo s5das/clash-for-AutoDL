@@ -241,6 +241,7 @@ fi
 if [[ $Status -eq 0 ]]; then
     # 定义要添加的函数内容
     cat << EOF > /tmp/clash_functions_template
+    
 # 开启系统代理
 function proxy_on() {
     export http_proxy=http://127.0.0.1:\$CLASH_PORT
@@ -279,7 +280,8 @@ EOF
     echo -e "若要临时关闭系统代理，请执行: proxy_off"
     echo -e "若需要彻底删除，请调用: shutdown_system"
 
-    # 手动执行 proxy_on 函数
+    # 手动执行 proxy_on 
+    source ~/.bashrc    
     proxy_on
 fi
 
