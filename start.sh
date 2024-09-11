@@ -460,6 +460,8 @@ function shutdown_system() {
     echo "准备执行系统关闭脚本..."
     $Server_Dir/shutdown.sh
 }
+
+proxy_on
 EOF
 
     # 使用 envsubst 替换变量
