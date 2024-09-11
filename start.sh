@@ -1,42 +1,229 @@
 #!/bin/bash
 
 set +m  # 关闭监视模式，不再报告后台作业状态
-
 Status=0  # 脚本运行状态，默认为0，表示成功
+#==============================================================
+# 设置环境变量
+#==============================================================
 
-#################### 脚本初始化任务 ####################
-# 杀死clash相关的所有进程
-pids=$(pgrep -f "clash-linux")
-if [ -n "$pids" ]; then
-    kill $pids &>/dev/null
-fi
-
-# 获取脚本工作目录绝对路径
-export Server_Dir="$( cd "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )"
-
-# 加载.env变量文件
-source $Server_Dir/.env
-
-# 给二进制启动程序、脚本等添加可执行权限
-chmod +x $Server_Dir/bin/*
-
-# 定义日志文件路径
-log_file="logs/clash.log"
-
-#################### 变量设置 ####################
+# 文件路径变量
+Server_Dir="$( cd "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )"
 Conf_Dir="$Server_Dir/conf"
 Log_Dir="$Server_Dir/logs"
+SUBCONVERTER_DIR="$Server_Dir/subconverter"
 
-# 将 CLASH_URL 变量的值赋给 URL 变量，并检查 CLASH_URL 是否为空
-URL=${CLASH_URL:?Error: CLASH_URL variable is not set or empty}
+# 注入配置文件里面的变量
+source $Server_Dir/.env
 
-# 获取 CLASH_SECRET 值，如果不存在则生成一个随机数
-Secret=${CLASH_SECRET:-$(openssl rand -hex 32)}
+# 第三方库版本变量
+CLASH_VERSION="v1.18.7"
+YQ_VERSION="v4.44.3"
+SUBCONVERTER_VERSION="v0.9.0"
 
-# 订阅文件默认名 
+# 第三方库和配置文件保存路径
+YQ_BINARY="$Server_Dir/bin/yq"
+log_file="logs/clash.log"
+SUBCONVERTER_TAR="subconverter.tar.gz"
 Config_File="$Conf_Dir/config.yaml"
 
-#################### 函数定义 ####################
+# URL变量
+SUBCONVERTER_DOWNLOAD_URL="https://kkgithub.com/tindy2013/subconverter/releases/latest/download/subconverter_linux64.tar.gz"
+URL=${CLASH_URL:?Error: CLASH_URL variable is not set or empty}
+# Clash 密钥
+Secret=${CLASH_SECRET:-$(openssl rand -hex 32)}
+
+# 下载重试次数
+MAX_RETRIES=3
+# 下载重试延迟
+RETRY_DELAY=5
+
+# Clash 配置
+TEMPLATE_FILE="$Conf_Dir/template.yaml"
+MERGED_FILE="$Conf_Dir/merged.yaml"
+
+# Subconverter 配置
+SUBCONVERTER_URL="http://127.0.0.1:25500/sub"
+
+# 提示信息
+Text1="Clash订阅地址可访问！"
+Text2="Clash订阅地址不可访问！"
+Text3="原始配置文件下载成功！"
+Text4="原始配置文件下载失败，请检查订阅地址是否正确！"
+Text5="服务启动成功！"
+Text6="服务启动失败！"
+
+# CPU架构选项
+CpuArch_checks=("x86_64" "amd64" "aarch64" "arm64" "armv7")
+
+
+#==============================================================
+# 自定义函数
+#==============================================================
+# 编码URL
+urlencode() {
+    local string="${1}"
+    local strlen=${#string}
+    local encoded=""
+    local pos c o
+
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * )               printf -v o '%%%02x' "'$c"
+        esac
+        encoded+="${o}"
+    done
+    echo "${encoded}"
+}
+
+# 检查YAML文件格式是否正确
+check_yaml() {
+    local file="$1"
+    
+    # 检查文件是否为空
+    if [ ! -s "$file" ]; then
+        echo "错误：文件为空"
+        return 1
+    fi
+
+    # 检查文件是否包含冒号
+    if ! grep -q ':' "$file"; then
+        echo "错误：文件不包含冒号，可能不是有效的YAML"
+        return 1
+    fi
+
+    # 文件非空且包含冒号，视为可能是有效的YAML
+    return 0
+}
+
+download_clash() {
+    local arch=$1
+    local url="https://kkgithub.com/MetaCubeX/mihomo/releases/download/${CLASH_VERSION}/mihomo-linux-${arch}-${CLASH_VERSION}.gz"
+    local temp_file="/tmp/clash-${arch}.gz"
+    local target_file="$Server_Dir/bin/clash-linux-${arch}"
+    local max_attempts=3
+    local attempt=1
+
+    echo $url
+
+    while [ $attempt -le $max_attempts ]; do
+        echo "Downloading clash for ${arch} (Attempt $attempt of $max_attempts)..."
+        if wget -q --show-progress \
+            --progress=bar:force:noscroll \
+            --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
+            -O "$temp_file" \
+            "$url"; then
+            echo "Download successful. Extracting..."
+            if gzip -d -c "$temp_file" > "$target_file"; then
+                chmod +x "$target_file"
+                rm "$temp_file"
+                echo "Clash binary for ${arch} is ready."
+                return 0
+            else
+                echo "Failed to extract the downloaded file."
+            fi
+        else
+            echo "Failed to download clash for ${arch}."
+        fi
+
+        attempt=$((attempt + 1))
+        if [ $attempt -le $max_attempts ]; then
+            echo "Retrying in 5 seconds..."
+            sleep 5
+        fi
+    done
+
+    echo "Failed to download clash for ${arch} after $max_attempts attempts."
+    return 1
+}
+
+# 检查并安装 yq
+install_yq() {
+    echo "Installing yq..."
+    local sleep_time=10
+
+    for attempt in $(seq 1 $MAX_RETRIES); do
+        if wget -q --show-progress \
+            --progress=bar:force:noscroll \
+            --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
+            -O "$YQ_BINARY" \
+            "https://kkgithub.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"; then
+            if [ -f "$YQ_BINARY" ]; then
+                chmod +x "$YQ_BINARY"
+                echo "yq installed successfully."
+                return 0
+            else
+                echo "yq binary not found after download."
+            fi
+        else
+            echo "Download failed."
+        fi
+
+        echo "Retrying in 2 seconds..."
+        sleep 2
+    done
+
+    echo "Failed to install yq after $MAX_RETRIES attempts."
+    return 1
+}
+
+# 安装subconverter
+install_subconverter() {
+    TEMP_FILE="/tmp/subconverter.tar.gz"
+
+    for i in $(seq 1 $MAX_RETRIES); do
+        echo "正在下载 subconverter... (尝试 $i/$MAX_RETRIES)"
+        
+        # 使用wget下载文件
+        if wget -q --show-progress \
+            --progress=bar:force:noscroll \
+            --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
+            -O "$TEMP_FILE" \
+            "$SUBCONVERTER_DOWNLOAD_URL"; then
+            
+            echo "下载完成，正在解压..."
+            
+            # 捕获tar的输出和退出状态
+            tar_output=$(tar -xzf "$TEMP_FILE" -C "$Server_Dir" 2>&1)
+            tar_status=$?
+
+            if [ $tar_status -eq 0 ]; then
+                echo "subconverter 安装完成。"
+                rm -f "$TEMP_FILE"
+                return 0
+            else
+                echo "解压失败。错误信息:"
+                echo "$tar_output"
+            fi
+        else
+            wget_status=$?
+            echo "下载失败。错误代码: $wget_status"
+            
+            # 分析wget的退出状态
+            case $wget_status in
+                1) echo "通用错误。";;
+                2) echo "解析错误。";;
+                3) echo "文件I/O错误。";;
+                4) echo "网络失败。";;
+                5) echo "SSL验证失败。";;
+                6) echo "用户名/密码认证失败。";;
+                7) echo "协议错误。";;
+                8) echo "服务器发出错误响应。";;
+                *) echo "未知错误发生。";;
+            esac
+        fi
+        
+        echo "重试中..."
+        sleep $RETRY_DELAY
+    done
+
+    echo "安装 subconverter 失败，请检查网络连接或手动安装。"
+    echo "正在退出..."
+    rm -f "$TEMP_FILE"
+    sleep 10
+    exit 1
+}
 
 # 自定义action函数，实现通用action功能
 success() {
@@ -75,48 +262,115 @@ if_success() {
     fi
 }
 
-# 检查并更新配置
-update_config() {
-    local key="$1"
-    local value="$2"
+#==============================================================
+# 鲁棒性检测
+#==============================================================
+# 清除环境变量
+unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
 
-    # 检查配置项是否已存在
-    if grep -q "^${key}:" "$Config_File"; then
-        # 配置项存在，更新它
-        sed -ri "s@^${key}:.*@${key}: ${value}@g" "$Config_File"
-    else
-        # 配置项不存在，添加它
-        echo "${key}: ${value}" >> "$Config_File"
-    fi
-}
-
-# 数：安全删除文件
-safe_remove() {
-    local file="$1"
-    if [ -f "$file" ]; then
-        rm "$file"
-        echo "已删除文件: $file"
-    else
-        echo "文件不存在，跳过删除: $file"
-    fi
-}
-
-#################### 鲁棒设置 ####################
-
-# 删除日志
-rm -rf "$Log_Dir"
-
-# 从 .bashrc 中删除旧的函数和相关行
+# 从 .bashrc 中删除函数和相关行
 functions_to_remove=("proxy_on" "proxy_off" "shutdown_system")
 for func in "${functions_to_remove[@]}"; do
   sed -i -E "/^function[[:space:]]+${func}[[:space:]]*()/,/^}$/d" ~/.bashrc
 done
 
-sed -i '/^# 开启系统代理/d; /^# 关闭系统代理/d; /^# 关闭系统函数/d' ~/.bashrc
+# 删除相关行
+sed -i '/^# 开启系统代理/d; /^# 关闭系统代理/d; /^# 关闭系统函数/d; /^# 检查clash进程是否正常启动/d; /proxy_on/d; /^#.*proxy_on/d' ~/.bashrc
 sed -i '/^$/N;/^\n$/D' ~/.bashrc
 
-#################### 任务执行 ####################
-## 获取CPU架构
+# 确保logs,conf,bin目录存在
+[[ ! -d "$Log_Dir" ]] && mkdir -p $Log_Dir
+[[ ! -d "$Conf_Dir" ]] && mkdir -p $Conf_Dir
+[[ ! -d "$Server_Dir/bin" ]] && mkdir -p $Server_Dir/bin
+
+# 检测并安装subconverter
+if [ ! -f "$SUBCONVERTER_DIR/subconverter" ]; then
+    install_subconverter
+fi
+
+# 检测并安装yq
+if [ ! -f "$YQ_BINARY" ]; then
+    install_yq
+fi
+
+# 设置subconverter参数
+SUBCONVERTER_PARAMS="target=clash&url=$(urlencode "${URL}")"
+# 检测clash进程是否存在，存在则要先杀掉，不存在就正常执行
+pids=$(pgrep -f "clash-linux")
+if [ -n "$pids" ]; then
+    kill $pids &>/dev/null
+fi
+
+#==============================================================
+# 配置文件检查与下载
+#==============================================================
+# 检测config是否下载，没有就下载，有就不下载
+if [ -f "$Config_File" ]; then
+    echo "配置文件已存在，无需下载。"
+else
+    echo -e '\n正在检测订阅地址...'
+    if curl -o /dev/null -L -k -sS --retry 5 -m 10 --connect-timeout 10 -w "%{http_code}" "$URL" | grep -E '^[23][0-9]{2}$' &>/dev/null; then
+        echo "Clash订阅地址可访问！"
+        
+        echo -e '\n正在下载Clash配置文件...'
+        if curl -L -k -sS --retry 5 -m 30 -o "$Config_File" "$URL"; then
+            echo "配置文件下载成功！"
+        else
+            echo "使用curl下载失败，尝试使用wget进行下载..."
+            if wget --no-check-certificate -O "$Config_File" "$URL"; then
+                echo "使用wget下载成功！"
+            else
+                echo "配置文件下载失败，请检查订阅地址是否正确！"
+                exit 1
+            fi
+        fi
+    else
+        echo "Clash订阅地址不可访问！请检查URL或网络连接。"
+        exit 1
+    fi
+fi
+
+
+
+#==============================================================
+# 配置文件格式验证与转换
+#==============================================================
+if check_yaml "$Config_File"; then
+    echo "配置文件格式正确，无需转换。"
+else
+    echo "检测到配置文件格式不正确，尝试使用subconverter进行转换..."
+
+    # 启动subconverter
+    nohup "$Server_Dir/subconverter/subconverter" > /dev/null 2>&1 &
+    SUBCONVERTER_PID=$!
+    sleep 2  # 给subconverter一些启动时间
+
+    # 使用subconverter转换配置
+    SUBCONVERTER_URL="http://127.0.0.1:25500/sub"
+    if curl -s -o "${Config_File}.converted" "${SUBCONVERTER_URL}?${SUBCONVERTER_PARAMS}"; then
+        if check_yaml "${Config_File}.converted"; then
+            echo "Subconverter转换成功，文件现在是有效的YAML格式。"
+            mv "${Config_File}.converted" "$Config_File"
+            $YQ_BINARY -n "load(\"$Config_File\") * load(\"$TEMPLATE_FILE\")" > $MERGED_FILE
+            mv $MERGED_FILE $Config_File
+        else
+            echo "Subconverter转换失败，无法生成有效的YAML文件。"
+            rm "${Config_File}.converted"
+            exit 1
+        fi
+    else
+        echo "Subconverter转换过程中发生错误。"
+        exit 1
+    fi
+
+    # 关闭subconverter进程
+    kill $SUBCONVERTER_PID
+fi
+
+# CPU 配置检测
+#==============================================================
+# 检测CPU配置，设置CPU相关变量
+# 获取CPU架构
 if /bin/arch &>/dev/null; then
     CpuArch=`/bin/arch`
 elif /usr/bin/arch &>/dev/null; then
@@ -135,98 +389,36 @@ if [[ $Status -eq 0 ]]; then
   fi
 fi 
 
-## 临时取消环境变量
-unset http_proxy
-unset https_proxy
-unset no_proxy
-unset HTTP_PROXY
-unset HTTPS_PROXY
-unset NO_PROXY
-
-#################### 设置config.yaml ####################
-
-if [[ $Status -eq 0 ]]; then
-    # 检查是否存在配置文件
-    if [ -f "$Config_File" ]; then
-        echo "配置文件已存在，无需下载。"
-    else
-        # 检查URL是否有效
-        echo -e '\n正在检测订阅地址...'
-        Text1="Clash订阅地址可访问！"
-        Text2="Clash订阅地址不可访问！"
-        curl -o /dev/null -L -k -sS --retry 5 -m 10 --connect-timeout 10 -w "%{http_code}" $URL | grep -E '^[23][0-9]{2}$' &>/dev/null
-        ReturnStatus=$?
-        if_success $Text1 $Text2 $ReturnStatus
-
-        if [[ $Status -eq 0 ]]; then
-            # 下载配置文件
-            echo -e '\n正在载Clash配置文件...'
-            Text3="配置文件config.yaml下载成功！"
-            Text4="配置文件config.yaml下载失败，退出启动！"
-            curl -L -k -sS --retry 5 -m 10 -o $Config_File $URL
-            ReturnStatus=$?
-            if [ $ReturnStatus -ne 0 ]; then
-                # 如果使用curl下载失败，尝试使用wget进行下载
-                for i in {1..10}
-                do
-                    wget -q --no-check-certificate -O $Config_File $URL
-                    ReturnStatus=$?
-                    if [ $ReturnStatus -eq 0 ]; then
-                        break
-                    else
-                        continue
-                    fi
-                done
-            fi
-            if_success $Text3 $Text4 $ReturnStatus
-
-            # 更新配置项
-            update_config "external-ui" "${CLASH_EXTERNAL_UI:-${Server_Dir}/dashboard/public}"
-            update_config "secret" "$Secret"
-            update_config "mixed-port" "${CLASH_PORT:-7890}"
-            update_config "port" "${CLASH_PORT:-7890}"
-            update_config "socks-port" "${CLASH_SOCKS_PORT:-7891}"
-            update_config "redir-port" "${CLASH_REDIR_PORT:-7892}"
-            update_config "allow-lan" "${CLASH_ALLOW_LAN:-true}"
-            update_config "mode" "${CLASH_MODE:-rule}"
-            update_config "log-level" "${CLASH_LOG_LEVEL:-silent}"
-            update_config "external-controller" "'${CLASH_EXTERNAL_CONTROLLER:-127.0.0.1:6006}'"
-        fi
-    fi
-fi
-
-####################  检查logs目录是否存在,不存在则创建 ####################
-if [ ! -d "$Log_Dir" ]; then
-    mkdir -p "$Log_Dir"
-    if [ $? -eq 0 ]; then
-        echo "成功创建logs目录: $Log_Dir"
-    else
-        echo "创建logs目录失败,请检查权限"
-        exit 1
-    fi
-fi
-
-#################### 启动clash ####################
+#==============================================================
+# Clash 二进制文件检查与下载
+#==============================================================
+# 根据CPU变量，检测是否下载bin，没有就下载，有就不下载
 if [[ $Status -eq 0 ]]; then
     ## 启动Clash服务
     echo -e '\n正在启动Clash服务...'
     Text5="服务启动成功！"
     Text6="服务启动失败！"
     if [[ $CpuArch =~ "x86_64" || $CpuArch =~ "amd64"  ]]; then
-        nohup $Server_Dir/bin/clash-linux-amd64 -d $Conf_Dir &> $Log_Dir/clash.log &
+        clash_bin="$Server_Dir/bin/clash-linux-amd64"
+        [[ ! -f "$clash_bin" ]] && download_clash "amd64"
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     elif [[ $CpuArch =~ "aarch64" ||  $CpuArch =~ "arm64" ]]; then
-        nohup $Server_Dir/bin/clash-linux-arm64 -d $Conf_Dir &> $Log_Dir/clash.log &
+        clash_bin="$Server_Dir/bin/clash-linux-arm64"
+        [[ ! -f "$clash_bin" ]] && download_clash "arm64"
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     elif [[ $CpuArch =~ "armv7" ]]; then
-        nohup $Server_Dir/bin/clash-linux-armv7 -d $Conf_Dir &> $Log_Dir/clash.log &
+        clash_bin="$Server_Dir/bin/clash-linux-armv7"
+        [[ ! -f "$clash_bin" ]] && download_clash "armv7"
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     else
         echo -e "\033[31m\n[ERROR] Unsupported CPU Architecture！\033[0m"
-        exit 0
+        exit 1
     fi
 fi
 
@@ -238,10 +430,14 @@ if [[ $Status -eq 0 ]]; then
     echo ''
 fi
 
+#==============================================================
+# 自定义命令注入
+#==============================================================
+CLASH_PORT=$($YQ_BINARY eval '.port' $Config_File)
+
 if [[ $Status -eq 0 ]]; then
     # 定义要添加的函数内容
     cat << EOF > /tmp/clash_functions_template
-    
 # 开启系统代理
 function proxy_on() {
     export http_proxy=http://127.0.0.1:\$CLASH_PORT
@@ -285,9 +481,6 @@ EOF
     proxy_on
 fi
 
-####################  重新加载.bashrc文件以应用更改 ####################
-if [[ $Status -eq 0 ]]; then
-    source ~/.bashrc
-fi
-
-set -m # 恢复监视模式
+#==============================================================
+# 恢复监视模式
+set -m  

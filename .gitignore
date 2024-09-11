@@ -3,3 +3,5 @@ conf/cache.db
 clash.log
 .env
 logs/*
+bin/*
+subconverter/*
