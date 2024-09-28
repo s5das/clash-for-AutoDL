@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# 添加 wget 命令检查
+if wget --help | grep -q 'show-progress'; then
+    WGET_CMD="wget -q --show-progress"
+else
+    WGET_CMD="wget -q"
+fi
+
 set +m  # 关闭监视模式，不再报告后台作业状态
 Status=0  # 脚本运行状态，默认为0，表示成功
 #==============================================================
@@ -93,7 +100,7 @@ check_yaml() {
         return 1
     fi
 
-    # 文件非空且包含冒号，视为可能是有效的YAML
+    # 文���非空且包含冒号，视为可能是有效的YAML
     return 0
 }
 
@@ -109,7 +116,7 @@ download_clash() {
 
     while [ $attempt -le $max_attempts ]; do
         echo "Downloading clash for ${arch} (Attempt $attempt of $max_attempts)..."
-        if wget -q --show-progress \
+        if $WGET_CMD \
             --progress=bar:force:noscroll \
             --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
             -O "$temp_file" \
@@ -144,7 +151,7 @@ install_yq() {
     local sleep_time=10
 
     for attempt in $(seq 1 $MAX_RETRIES); do
-        if wget -q --show-progress \
+        if $WGET_CMD \
             --progress=bar:force:noscroll \
             --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
             -O "$YQ_BINARY" \
@@ -176,7 +183,7 @@ install_subconverter() {
         echo "正在下载 subconverter... (尝试 $i/$MAX_RETRIES)"
         
         # 使用wget下载文件
-        if wget -q --show-progress \
+        if $WGET_CMD \
             --progress=bar:force:noscroll \
             --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
             -O "$TEMP_FILE" \
@@ -210,7 +217,7 @@ install_subconverter() {
                 6) echo "用户名/密码认证失败。";;
                 7) echo "协议错误。";;
                 8) echo "服务器发出错误响应。";;
-                *) echo "未知错误发生。";;
+                *) echo "未知错误���生。";;
             esac
         fi
         
@@ -265,7 +272,7 @@ if_success() {
 #==============================================================
 # 鲁棒性检测
 #==============================================================
-# 清除环境变量
+# 清除�����变量
 unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
 
 # 从 .bashrc 中删除函数和相关行
@@ -316,8 +323,8 @@ else
         if curl -L -k -sS --retry 5 -m 30 -o "$Config_File" "$URL"; then
             echo "配置文件下载成功！"
         else
-            echo "使用curl下载失败，尝试使用wget进行下载..."
-            if wget --no-check-certificate -O "$Config_File" "$URL"; then
+            echo "使用curl下载失败，尝试使用wget进行下���..."
+            if $WGET_CMD -O "$Config_File" "$URL"; then
                 echo "使用wget下载成功！"
             else
                 echo "配置文件下载失败，请检查订阅地址是否正确！"
