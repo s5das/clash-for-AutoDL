@@ -264,7 +264,7 @@ action() {
 
 # 判断命令是否正常执行的函数
 if_success() {
-    local ReturnStatus=${3:-0}  # 如果 \$3 未设置或为空，则默认为 0
+    local ReturnStatus=${3:-0}  # 如果 \$3 未设置或为空，默认 0
     if [ "$ReturnStatus" -eq 0 ]; then
         action "$1" /bin/true
         Status=0  # 脚本运行状态设置为0，表示成功
@@ -437,8 +437,7 @@ fi
 if [[ $Status -eq 0 ]]; then
     # Output Dashboard access address and Secret
     echo ''
-    echo -e "Clash Dashboard 访问地址: http://<ip>:6006/ui"
-    echo -e "Secret: ${Secret}"
+    echo -e "Clash 控制面板访问地址: http://<your_ip>:6006/ui"
     echo ''
 fi
 
@@ -452,19 +451,29 @@ if [[ $Status -eq 0 ]]; then
     cat << EOF > /tmp/clash_functions_template
 # 开启系统代理
 function proxy_on() {
+    local is_quiet=\${1:-false}
+    
     export http_proxy=http://127.0.0.1:$CLASH_PORT
     export https_proxy=http://127.0.0.1:$CLASH_PORT
     export no_proxy=127.0.0.1,localhost
     export HTTP_PROXY=http://127.0.0.1:$CLASH_PORT
     export HTTPS_PROXY=http://127.0.0.1:$CLASH_PORT
     export NO_PROXY=127.0.0.1,localhost
-    echo -e "${GREEN}[√] 已开启代理${NC}"
+    
+    if [ #is_quiet != "true" ]; then
+        echo -e "${GREEN}[√] 已开启代理${NC}"
+    fi
 }
 
 # 关闭系统代理
 function proxy_off() {
+    local is_quiet=\${1:-false}
+    
     unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
-    echo -e "${RED}[×] 已关闭代理${NC}"
+
+    if [ #is_quiet != "true" ]; then
+        echo -e "${RED}[×] 已关闭代理${NC}"
+    fi
 }
 
 # 关闭系统函数
@@ -472,12 +481,13 @@ function shutdown_system() {
     echo "准备执行系统关闭脚本..."
     $Server_Dir/shutdown.sh
 }
-
-proxy_on
 EOF
 
     # 使用 envsubst 替换变量
     envsubst < /tmp/clash_functions_template > /tmp/clash_functions
+
+    # 在临时函数文件中将 #is_quiet 替换为 $is_quiet
+    sed -i 's/#is_quiet/$is_quiet/g' /tmp/clash_functions
 
     # 将函数追加到 .bashrc
     cat /tmp/clash_functions >> ~/.bashrc
@@ -490,17 +500,40 @@ EOF
     echo -e "若要临时关闭系统代理，请执行: proxy_off"
     echo -e "若需要彻底删除，请调用: shutdown_system"
 
-    # 手动执行 proxy_on 
-    source ~/.bashrc    
+    # 询问用户是否要自动添加 proxy_on 命令
+    read -p "是否要在 .bashrc 中自动添加 proxy_on 命令？(y/n): " auto_proxy
+    if [[ $auto_proxy == "y" || $auto_proxy == "Y" ]]; then
+        echo "proxy_on" >> ~/.bashrc
+        echo "已在 .bashrc 中添加自动执行 proxy_on 命令。"
+        auto_proxy_enabled=true
+    else
+        echo ""
+        echo "未添加自动执行 proxy_on 命令，您可以手动执行该命令来启用代理。"
+        auto_proxy_enabled=false
+    fi
+
+    # 重新加载 .bashrc
+    source ~/.bashrc
 fi
 
 # 添加 curl 测试
 echo "正在测试网络连接..."
+
+# 如果不是自动设置代理，则手动开启代理
+is_quiet_mode=true
+if [ "$auto_proxy_enabled" = false ]; then
+    proxy_on true
+fi
+
 if curl -s -o /dev/null -w "%{http_code}" google.com | grep -qE '^[0-9]+$'; then
     echo -e "${GREEN}网络连接测试成功。${NC}"
 else
     echo -e "${RED}网络连接测试失败。请检查您的网络和 Clash 配置。${NC}"
-    # 可以在这里添加更多的错误处理逻辑
+fi
+
+# 如果不是自动设置代理，则手动关闭代理
+if [ "$auto_proxy_enabled" = false ]; then
+    proxy_off true
 fi
 
 #==============================================================

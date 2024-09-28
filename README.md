@@ -112,11 +112,10 @@ source ./start.sh
 Clash 控制面板访问地址: http://<your_ip>:6006/ui
 Secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# 修改了这些说明
-已添加代理函数到 .bashrc 文件。
-要启用系统代理，请执行: proxy_on
-要禁用系统代理，请执行: proxy_off
-要完全卸载服务，请执行: shutdown_system
+已添加代理函数到 .bashrc。
+请执行以下命令启动系统代理: proxy_on
+若要临时关闭系统代理，请执行: proxy_off
+若需要彻底删除，请调用: shutdown_system
 
 [√] 系统代理已启用
 正在测试网络连接...
