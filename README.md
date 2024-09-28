@@ -8,7 +8,7 @@
 
 > **注意：** 建议提issue的同学，可以给自己的GitHub账户绑定邮箱，这样子一旦收到反馈，会及时通知到你。
 
-> **注意：** Ping使用的是 ICMP（Internet Control Message Protocol） 协议，是网络层协议，Clash 只会代理传输层的TCP和UDP流量，因此无论clash是否能够正常工作，ping google.com 都是不会有效果的。
+> **注意：** Ping使用的是 ICMP（Internet Control Message Protocol） 协议，是网络层协议，Clash 只会代理传输层的TCP和UDP流量，因此无论clash是否能够正��工作，ping google.com 都是不会有效果的。
 
 > **注意：** 关于本项目的适配问题，对于RHEL/Debian系列Linux系统，x86_64/aarch64平台的一般云服务器和本地服务器应该都是适配的，比如阿里云，腾讯云，autodl，趋势云上，本地的3090，4090服务器上，作者都做过相关测试，可以正常运行。
 
@@ -103,28 +103,24 @@ apt-get install lsof
 ```bash
 source ./start.sh
 
-正在检测订阅地址...
-Clash订阅地址可访问！                                      [  OK  ]
-
-正在下载Clash配置文件...
-配置文件config.yaml下载成功！                              [  OK  ]
-日志文件 logs/clash.log 已存在。
+配置文件已存在，无需下载。
+配置文件格式正确，无需转换。
 
 正在启动Clash服务...
 服务启动成功！                                             [  OK  ]
 
-Clash Dashboard 访问地址: http://<ip>:6006/ui
+Clash 控制面板访问地址: http://<your_ip>:6006/ui
 Secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-已添加代理函数到 .bashrc，并设置为自动执行。\n
-请执行以下命令启动系统代理: proxy_on
+# 修改了这些说明
+已添加代理函数到 .bashrc 文件。
+要启用系统代理，请执行: proxy_on
+要禁用系统代理，请执行: proxy_off
+要完全卸载服务，请执行: shutdown_system
 
-若要临时关闭系统代理，请执行: proxy_off
-
-若需要彻底删除，请调用: shutdown_system
-
-[√] 已开启代理
-
+[√] 系统代理已启用
+正在测试网络连接...
+网络连接测试成功。
 ```
 
 ![6.png](https://s2.loli.net/2024/06/20/txmaFbIAQpY2nES.png)
@@ -142,16 +138,6 @@ tcp6       0      0 :::7892                 :::*                    LISTEN
 ```
 
 ![7.png](https://s2.loli.net/2024/06/20/WMVzH431c8gARPw.png)
-
-- 检查环境变量
-
-```bash
-env | grep -E 'http_proxy|https_proxy'
-http_proxy=http://127.0.0.1:7890
-https_proxy=http://127.0.0.1:7890
-```
-
-![8.png](https://s2.loli.net/2024/06/20/niajqWtDpfZTJdV.png)
 
 以上步骤如果正常，说明服务clash程序启动成功，现在就可以体验高速下载github资源了。
 
