@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# 添加 wget 命令检查
+# 定义颜色变量
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# wget 命令检查
 if wget --help | grep -q 'show-progress'; then
     WGET_CMD="wget -q --show-progress"
 else
@@ -100,7 +105,7 @@ check_yaml() {
         return 1
     fi
 
-    # 文���非空且包含冒号，视为可能是有效的YAML
+    # 文件非空且包含冒号，视为可能是有效的YAML
     return 0
 }
 
@@ -217,7 +222,7 @@ install_subconverter() {
                 6) echo "用户名/密码认证失败。";;
                 7) echo "协议错误。";;
                 8) echo "服务器发出错误响应。";;
-                *) echo "未知错误���生。";;
+                *) echo "未知错误生。";;
             esac
         fi
         
@@ -234,13 +239,13 @@ install_subconverter() {
 
 # 自定义action函数，实现通用action功能
 success() {
-    echo -en "\033[60G[\033[1;32m  OK  \033[0;39m]\r"
+    echo -en "\033[60G[${GREEN}  OK  ${NC}]\r"
     return 0
 }
 
 failure() {
     local rc=$?
-    echo -en "\033[60G[\033[1;31mFAILED\033[0;39m]\r"
+    echo -en "\033[60G[${RED}FAILED${NC}]\r"
     [ -x /bin/plymouth ] && /bin/plymouth --details
     return $rc
 }
@@ -272,7 +277,7 @@ if_success() {
 #==============================================================
 # 鲁棒性检测
 #==============================================================
-# 清除�����变量
+# 清除变量
 unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
 
 # 从 .bashrc 中删除函数和相关行
@@ -323,7 +328,7 @@ else
         if curl -L -k -sS --retry 5 -m 30 -o "$Config_File" "$URL"; then
             echo "配置文件下载成功！"
         else
-            echo "使用curl下载失败，尝试使用wget进行下���..."
+            echo "使用curl下载失败，尝试使用wget进行下..."
             if $WGET_CMD -O "$Config_File" "$URL"; then
                 echo "使用wget下载成功！"
             else
@@ -385,7 +390,7 @@ elif /usr/bin/arch &>/dev/null; then
 elif /bin/uname -m &>/dev/null; then
     CpuArch=`/bin/uname -m`
 else
-    echo -e "\033[31m\n[ERROR] Failed to obtain CPU architecture！\033[0m"
+    echo -e "${RED}\n[ERROR] Failed to obtain CPU architecture！${NC}"
 fi
 
 # Check if we obtained CPU architecture, and Status is still 0
@@ -424,7 +429,7 @@ if [[ $Status -eq 0 ]]; then
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     else
-        echo -e "\033[31m\n[ERROR] Unsupported CPU Architecture！\033[0m"
+        echo -e "${RED}\n[ERROR] Unsupported CPU Architecture！${NC}"
         exit 1
     fi
 fi
@@ -453,13 +458,13 @@ function proxy_on() {
     export HTTP_PROXY=http://127.0.0.1:$CLASH_PORT
     export HTTPS_PROXY=http://127.0.0.1:$CLASH_PORT
     export NO_PROXY=127.0.0.1,localhost
-    echo -e "\033[32m[√] 已开启代理\033[0m"
+    echo -e "${GREEN}[√] 已开启代理${NC}"
 }
 
 # 关闭系统代理
 function proxy_off() {
     unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
-    echo -e "\033[31m[×] 已关闭代理\033[0m"
+    echo -e "${RED}[×] 已关闭代理${NC}"
 }
 
 # 关闭系统函数
@@ -487,6 +492,15 @@ EOF
 
     # 手动执行 proxy_on 
     source ~/.bashrc    
+fi
+
+# 添加 curl 测试
+echo "正在测试网络连接..."
+if curl -s -o /dev/null -w "%{http_code}" google.com | grep -qE '^[0-9]+$'; then
+    echo -e "${GREEN}网络连接测试成功。${NC}"
+else
+    echo -e "${RED}网络连接测试失败。请检查您的网络和 Clash 配置。${NC}"
+    # 可以在这里添加更多的错误处理逻辑
 fi
 
 #==============================================================
