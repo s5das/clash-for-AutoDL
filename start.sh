@@ -363,8 +363,6 @@ else
         if check_yaml "${Config_File}.converted"; then
             echo "Subconverter转换成功，文件现在是有效的YAML格式。"
             mv "${Config_File}.converted" "$Config_File"
-            $YQ_BINARY -n "load(\"$Config_File\") * load(\"$TEMPLATE_FILE\")" > $MERGED_FILE
-            mv $MERGED_FILE $Config_File
         else
             echo "Subconverter转换失败，无法生成有效的YAML文件。"
             rm "${Config_File}.converted"
@@ -378,6 +376,10 @@ else
     # 关闭subconverter进程
     kill $SUBCONVERTER_PID
 fi
+
+# 合并配置文件
+$YQ_BINARY -n "load(\"$Config_File\") * load(\"$TEMPLATE_FILE\")" > $MERGED_FILE
+mv $MERGED_FILE $Config_File
 
 # CPU 配置检测
 #==============================================================
@@ -413,19 +415,22 @@ if [[ $Status -eq 0 ]]; then
     if [[ $CpuArch =~ "x86_64" || $CpuArch =~ "amd64"  ]]; then
         clash_bin="$Server_Dir/bin/clash-linux-amd64"
         [[ ! -f "$clash_bin" ]] && download_clash "amd64"
-        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 </dev/null &
+        disown
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     elif [[ $CpuArch =~ "aarch64" ||  $CpuArch =~ "arm64" ]]; then
         clash_bin="$Server_Dir/bin/clash-linux-arm64"
         [[ ! -f "$clash_bin" ]] && download_clash "arm64"
-        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 </dev/null &
+        disown
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     elif [[ $CpuArch =~ "armv7" ]]; then
         clash_bin="$Server_Dir/bin/clash-linux-armv7"
         [[ ! -f "$clash_bin" ]] && download_clash "armv7"
-        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 &
+        nohup "$clash_bin" -d "$Conf_Dir" > "$Log_Dir/clash.log" 2>&1 </dev/null &
+        disown
         ReturnStatus=$?
         if_success $Text5 $Text6 $ReturnStatus
     else
