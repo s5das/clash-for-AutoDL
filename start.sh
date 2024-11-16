@@ -39,7 +39,7 @@ SUBCONVERTER_TAR="subconverter.tar.gz"
 Config_File="$Conf_Dir/config.yaml"
 
 # URL变量
-SUBCONVERTER_DOWNLOAD_URL="https://kkgithub.com/tindy2013/subconverter/releases/latest/download/subconverter_linux64.tar.gz"
+SUBCONVERTER_DOWNLOAD_URL="https://gh-proxy.com/github.com/tindy2013/subconverter/releases/latest/download/subconverter_linux64.tar.gz"
 URL=${CLASH_URL:?Error: CLASH_URL variable is not set or empty}
 # Clash 密钥
 Secret=${CLASH_SECRET:-$(openssl rand -hex 32)}
@@ -111,7 +111,7 @@ check_yaml() {
 
 download_clash() {
     local arch=$1
-    local url="https://kkgithub.com/MetaCubeX/mihomo/releases/download/${CLASH_VERSION}/mihomo-linux-${arch}-${CLASH_VERSION}.gz"
+    local url="https://gh-proxy.com/github.com/MetaCubeX/mihomo/releases/download/${CLASH_VERSION}/mihomo-linux-${arch}-${CLASH_VERSION}.gz"
     local temp_file="/tmp/clash-${arch}.gz"
     local target_file="$Server_Dir/bin/clash-linux-${arch}"
     local max_attempts=3
@@ -160,7 +160,7 @@ install_yq() {
             --progress=bar:force:noscroll \
             --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 \
             -O "$YQ_BINARY" \
-            "https://kkgithub.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"; then
+            "https://gh-proxy.com/github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"; then
             if [ -f "$YQ_BINARY" ]; then
                 chmod +x "$YQ_BINARY"
                 echo "yq installed successfully."
