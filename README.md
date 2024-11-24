@@ -94,6 +94,7 @@ cd clash-for-AutoDL
 ```bash
 apt-get update
 apt-get install lsof
+sudo apt install gettext
 ```
 
 ![5.png](https://s2.loli.net/2024/06/20/otEXxVMDOrez62Q.png)
